@@ -12,7 +12,10 @@ import {
   Scale,
   ChevronLeft,
   ChevronRight,
-  LayoutDashboard
+  LayoutDashboard,
+  Building2,
+  CheckSquare,
+  DollarSign
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { auth } from '@/lib/firebase';
@@ -64,6 +67,9 @@ export default function DashboardLayout({
     { id: 'inicio', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/inicio' },
     { id: 'expedientes', label: 'Expedientes', icon: FolderOpen, path: '/dashboard/expedientes' },
     { id: 'clientes', label: 'Clientes', icon: Users, path: '/dashboard/clientes' },
+    { id: 'autoridades', label: 'Autoridades', icon: Building2, path: '/dashboard/autoridades' },
+    { id: 'tareas', label: 'Tareas', icon: CheckSquare, path: '/dashboard/tareas' },
+    { id: 'gastos', label: 'Gastos', icon: DollarSign, path: '/dashboard/gastos' },
   ];
 
   return (

@@ -1,29 +1,160 @@
-import { LayoutDashboard } from 'lucide-react';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  LayoutDashboard, 
+  FolderOpen, 
+  Users, 
+  CheckSquare, 
+  DollarSign,
+  TrendingUp,
+  Clock
+} from 'lucide-react';
+import { obtenerExpedientes } from '@/lib/expedientes';
+import { obtenerClientes } from '@/lib/clientes';
+import { obtenerTodasTareas } from '@/lib/tareas';
+import { obtenerGastos } from '@/lib/gastos';
+import { Expediente } from '@/types/expediente';
+import { Cliente } from '@/types/cliente';
+import { Tarea } from '@/types/tarea';
+import { Gasto } from '@/types/gasto';
+import KPICard from '@/components/dashboard/KPICard';
+import TareasRecientes from '@/components/dashboard/TareasRecientes';
+import ExpedientesPorEstatus from '@/components/dashboard/ExpedientesPorEstatus';
+import GastosRecientes from '@/components/dashboard/GastosRecientes';
+import UltimosClientes from '@/components/dashboard/UltimosClientes';
+import toast from 'react-hot-toast';
 
 export default function InicioPage() {
+  const { user } = useAuth();
+  const [expedientes, setExpedientes] = useState<Expediente[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [gastos, setGastos] = useState<Gasto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const cargarDatos = async () => {
+    try {
+      setLoading(true);
+      const [expData, clientesData, tareasData, gastosData] = await Promise.all([
+        obtenerExpedientes(),
+        obtenerClientes(),
+        obtenerTodasTareas(),
+        obtenerGastos()
+      ]);
+      
+      setExpedientes(expData);
+      setClientes(clientesData);
+      setTareas(tareasData);
+      setGastos(gastosData);
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      toast.error('Error al cargar el dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calcular KPIs
+  const expedientesActivos = expedientes.filter(e => e.estatus === 'Activo').length;
+  const tareasPendientes = tareas.filter(t => t.estatus !== 'completada').length;
+  
+  const gastosMes = gastos.filter(g => {
+    const fecha = g.fecha?.toDate?.() || new Date();
+    const ahora = new Date();
+    return fecha.getMonth() === ahora.getMonth() && fecha.getFullYear() === ahora.getFullYear();
+  }).reduce((sum, g) => sum + g.total, 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#C6A43F] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard General</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-1">
-          Panel de control de GMG Estrategia Jurídica
+          Bienvenido de vuelta, {user?.email?.split('@')[0] || 'Usuario'}
         </p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        <div className="text-center py-12">
-          <div className="w-20 h-20 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-            <LayoutDashboard size={40} className="text-[#C6A43F]" />
+      {/* KPIs principales */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          title="Expedientes Activos"
+          value={expedientesActivos}
+          icon={<FolderOpen size={24} />}
+          color="#10B981"
+        />
+        <KPICard
+          title="Clientes Totales"
+          value={clientes.length}
+          icon={<Users size={24} />}
+          color="#3B82F6"
+        />
+        <KPICard
+          title="Tareas Pendientes"
+          value={tareasPendientes}
+          icon={<CheckSquare size={24} />}
+          color="#F59E0B"
+        />
+        <KPICard
+          title="Gastos del Mes"
+          value={`$${gastosMes.toFixed(2)}`}
+          icon={<DollarSign size={24} />}
+          color="#C6A43F"
+        />
+      </div>
+
+      {/* Segunda fila - Tareas y Expedientes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TareasRecientes tareas={tareas} />
+        <ExpedientesPorEstatus expedientes={expedientes} />
+      </div>
+
+      {/* Tercera fila - Gastos y Clientes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GastosRecientes gastos={gastos} />
+        <UltimosClientes clientes={clientes} />
+      </div>
+
+      {/* Resumen rápido */}
+      <div className="bg-gradient-to-r from-[#0A0A0A] to-[#1A1A1A] rounded-xl shadow-sm p-6 text-white">
+        <div className="flex items-center gap-3 mb-4">
+          <TrendingUp size={24} className="text-[#C6A43F]" />
+          <h3 className="text-lg font-semibold">Resumen General</h3>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <p className="text-gray-400 text-sm">Total Expedientes</p>
+            <p className="text-2xl font-bold">{expedientes.length}</p>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Bienvenido al Sistema
-          </h2>
-          <p className="text-gray-500">
-            Aquí encontrarás un resumen de tu actividad y métricas importantes
-          </p>
-          <p className="text-sm text-gray-400 mt-4">
-            Próximamente: estadísticas, casos recientes y notificaciones
-          </p>
+          <div>
+            <p className="text-gray-400 text-sm">Expedientes Activos</p>
+            <p className="text-2xl font-bold text-green-400">{expedientesActivos}</p>
+          </div>
+          <div>
+            <p className="text-gray-400 text-sm">Tareas Completadas</p>
+            <p className="text-2xl font-bold text-green-400">{tareas.length - tareasPendientes}</p>
+          </div>
+          <div>
+            <p className="text-gray-400 text-sm">Gasto Promedio</p>
+            <p className="text-2xl font-bold text-[#C6A43F]">
+              ${gastos.length > 0 ? (gastos.reduce((s, g) => s + g.total, 0) / gastos.length).toFixed(2) : '0'}
+            </p>
+          </div>
         </div>
       </div>
     </div>

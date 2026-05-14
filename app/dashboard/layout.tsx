@@ -15,12 +15,16 @@ import {
   LayoutDashboard,
   Building2,
   CheckSquare,
-  DollarSign
+  DollarSign,
+  Calendar,
+  Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import Link from 'next/link';
+import { obtenerUsuarioPorId } from '@/lib/admin';
+import { Usuario } from '@/types/usuario';
 
 export default function DashboardLayout({
   children,
@@ -31,6 +35,28 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [loadingRole, setLoadingRole] = useState(true);
+
+  // Obtener el rol del usuario desde Firestore
+  useEffect(() => {
+    const getUserRole = async () => {
+      if (user) {
+        try {
+          const userData = await obtenerUsuarioPorId(user.uid);
+          setUserRole(userData?.rol || 'pasante');
+        } catch (error) {
+          console.error('Error al obtener rol:', error);
+          setUserRole('pasante');
+        } finally {
+          setLoadingRole(false);
+        }
+      } else {
+        setLoadingRole(false);
+      }
+    };
+    getUserRole();
+  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -38,7 +64,7 @@ export default function DashboardLayout({
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  if (loading || loadingRole) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -63,14 +89,32 @@ export default function DashboardLayout({
     }
   };
 
-  const menuItems = [
+  // Menú base para todos los usuarios
+  const baseMenuItems = [
     { id: 'inicio', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard/inicio' },
     { id: 'expedientes', label: 'Expedientes', icon: FolderOpen, path: '/dashboard/expedientes' },
     { id: 'clientes', label: 'Clientes', icon: Users, path: '/dashboard/clientes' },
     { id: 'autoridades', label: 'Autoridades', icon: Building2, path: '/dashboard/autoridades' },
     { id: 'tareas', label: 'Tareas', icon: CheckSquare, path: '/dashboard/tareas' },
     { id: 'gastos', label: 'Gastos', icon: DollarSign, path: '/dashboard/gastos' },
+    { id: 'calendario', label: 'Calendario', icon: Calendar, path: '/dashboard/calendario' },
   ];
+
+  // Agregar opción de Admin solo si el usuario tiene rol admin
+  const menuItems = [...baseMenuItems];
+  if (userRole === 'admin') {
+    menuItems.push({ id: 'admin', label: 'Admin', icon: Shield, path: '/dashboard/admin' });
+  }
+
+  // Determinar el rol para mostrar en el header
+  const getRolLabel = (rol: string | null) => {
+    switch (rol) {
+      case 'admin': return 'Administrador';
+      case 'abogado': return 'Abogado';
+      case 'pasante': return 'Pasante';
+      default: return 'Usuario';
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -124,7 +168,7 @@ export default function DashboardLayout({
           <nav className="flex-1 py-6">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.path;
+              const isActive = pathname === item.path || pathname?.startsWith(item.path + '/');
               return (
                 <Link
                   key={item.id}
@@ -202,7 +246,7 @@ export default function DashboardLayout({
                 <p className="text-sm font-medium text-gray-900">
                   {user?.email}
                 </p>
-                <p className="text-xs text-gray-500">Abogado</p>
+                <p className="text-xs text-gray-500">{getRolLabel(userRole)}</p>
               </div>
               <div className="w-8 h-8 bg-[#C6A43F] rounded-full flex items-center justify-center text-black font-semibold">
                 {user?.email?.charAt(0).toUpperCase()}

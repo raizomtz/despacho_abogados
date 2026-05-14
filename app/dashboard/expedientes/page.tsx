@@ -23,6 +23,8 @@ import ExpedienteModal from '@/components/expedientes/ExpedienteModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { obtenerUsuarios } from '@/lib/admin';
+import { Usuario } from '@/types/usuario';
 
 export default function ExpedientesPage() {
   const router = useRouter();
@@ -35,23 +37,26 @@ export default function ExpedientesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expedienteToEdit, setExpedienteToEdit] = useState<Expediente | null>(null);
   const [expedienteToDelete, setExpedienteToDelete] = useState<Expediente | null>(null);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
 
-  const cargarDatos = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [expedientesData, clientesData] = await Promise.all([
-        obtenerExpedientes(),
-        obtenerClientes()
-      ]);
-      setExpedientes(expedientesData);
-      setClientes(clientesData);
-    } catch (error) {
-      toast.error('Error al cargar datos');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const cargarDatos = useCallback(async () => {
+  try {
+    setLoading(true);
+    const [expedientesData, clientesData, usuariosData] = await Promise.all([
+      obtenerExpedientes(),
+      obtenerClientes(),
+      obtenerUsuarios()
+    ]);
+    setExpedientes(expedientesData);
+    setClientes(clientesData);
+    setUsuarios(usuariosData);
+  } catch (error) {
+    toast.error('Error al cargar datos');
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     cargarDatos();
@@ -165,7 +170,7 @@ export default function ExpedientesPage() {
             placeholder="Buscar por número de expediente o nombre del cliente..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
           />
         </div>
       </div>
@@ -284,17 +289,19 @@ export default function ExpedientesPage() {
         )}
       </div>
 
-      <ExpedienteModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setExpedienteToEdit(null);
-        }}
-        onSave={handleSaveExpediente}
-        clientes={clientes}
-        initialData={expedienteToEdit || undefined}
-        isEdit={!!expedienteToEdit}
-      />
+<ExpedienteModal
+  isOpen={modalOpen}
+  onClose={() => {
+    setModalOpen(false);
+    setExpedienteToEdit(null);
+  }}
+  onSave={handleSaveExpediente}
+  clientes={clientes}
+  usuarios={usuarios}
+  currentUser={user}
+  initialData={expedienteToEdit || undefined}
+  isEdit={!!expedienteToEdit}
+/>
 
       <ConfirmModal
         isOpen={confirmModalOpen}

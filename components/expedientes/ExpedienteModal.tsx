@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save } from 'lucide-react';
+import { X, Save, UserPlus, UserMinus, Users } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
-import { ExpedienteFormData } from '@/types/expediente';
+import { ExpedienteFormData} from '@/types/expediente';
 import { Cliente } from '@/types/cliente';
+import { Usuario } from '@/types/usuario';
 import toast from 'react-hot-toast';
 
 interface ExpedienteModalProps {
@@ -13,6 +14,8 @@ interface ExpedienteModalProps {
   onClose: () => void;
   onSave: (data: ExpedienteFormData) => Promise<void>;
   clientes: Cliente[];
+  usuarios?: Usuario[]; // Lista de usuarios para asignar
+  currentUser?: any;
   initialData?: Partial<ExpedienteFormData>;
   isEdit?: boolean;
 }
@@ -66,17 +69,18 @@ export default function ExpedienteModal({
   onClose, 
   onSave, 
   clientes,
+  usuarios = [],
+  currentUser,
   initialData = {},
   isEdit = false 
 }: ExpedienteModalProps) {
   const [formData, setFormData] = useState<ExpedienteFormData>(DEFAULT_FORM_DATA);
   const [loading, setLoading] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const initialDataRef = useRef(initialData);
 
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+    if (!isOpen) return;
 
     const currentInitialData = initialDataRef.current;
     
@@ -95,8 +99,10 @@ export default function ExpedienteModal({
         estatus: (currentInitialData.estatus as 'Activo' | 'Concluido' | 'Suspendido') || 'Activo',
         asignados: currentInitialData.asignados || [],
       });
+      setSelectedUsers(currentInitialData.asignados || []);
     } else {
       setFormData({ ...DEFAULT_FORM_DATA });
+      setSelectedUsers([]);
     }
   }, [isOpen, isEdit]);
 
@@ -112,6 +118,20 @@ export default function ExpedienteModal({
       clienteId,
       clienteNombre: cliente?.nombre || '',
     });
+  };
+
+  const handleAddUser = (userId: string) => {
+    if (!selectedUsers.includes(userId)) {
+      const newSelected = [...selectedUsers, userId];
+      setSelectedUsers(newSelected);
+      setFormData(prev => ({ ...prev, asignados: newSelected }));
+    }
+  };
+
+  const handleRemoveUser = (userId: string) => {
+    const newSelected = selectedUsers.filter(id => id !== userId);
+    setSelectedUsers(newSelected);
+    setFormData(prev => ({ ...prev, asignados: newSelected }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,11 +157,16 @@ export default function ExpedienteModal({
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
+  };
+
+  const getUserName = (userId: string) => {
+    const user = usuarios.find(u => u.uid === userId);
+    return user?.nombre || user?.email || userId;
   };
 
   return (
@@ -197,10 +222,9 @@ export default function ExpedienteModal({
                     Cliente *
                   </label>
                   <select
-                    name="clienteId"
                     value={formData.clienteId}
                     onChange={handleClienteChange}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
                     required
                     disabled={isEdit}
                   >
@@ -315,7 +339,73 @@ export default function ExpedienteModal({
                     <option value="Suspendido">Suspendido</option>
                   </select>
                 </div>
+
+                {/* Campo de Asignados */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    <Users size={16} className="inline mr-1" />
+                    Personas Asignadas al Expediente
+                  </label>
+                  
+                  {/* Selector de usuarios */}
+                  <div className="mb-3">
+                    <select
+                      onChange={(e) => handleAddUser(e.target.value)}
+                      value=""
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
+                    >
+                      <option value="">Agregar persona...</option>
+                      {usuarios
+                        .filter(u => !selectedUsers.includes(u.uid))
+                        .map(user => (
+                          <option key={user.uid} value={user.uid}>
+                            {user.nombre || user.email} - {user.rol === 'abogado' ? 'Abogado' : user.rol === 'admin' ? 'Admin' : 'Pasante'}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  
+                  {/* Lista de asignados */}
+                  {selectedUsers.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedUsers.map(userId => {
+                        const user = usuarios.find(u => u.uid === userId);
+                        return (
+                          <div key={userId} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {user?.nombre || user?.email || userId}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {user?.rol === 'abogado' ? 'Abogado' : user?.rol === 'admin' ? 'Administrador' : 'Pasante'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveUser(userId)}
+                              className="text-red-600 hover:text-red-800 transition-colors"
+                              title="Remover"
+                            >
+                              <UserMinus size={18} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">No hay personas asignadas a este expediente</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-2">
+                    Las personas asignadas podrán ver y gestionar este expediente
+                  </p>
+                </div>
               </div>
+
+              {formData.clienteId && formData.clienteNombre && (
+                <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
+                  <span className="font-medium">Cliente:</span> {formData.clienteNombre}
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4">
                 <button

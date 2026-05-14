@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Users, Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Search, Mail, MessageCircle } from 'lucide-react';
 import { 
   obtenerClientes, 
   crearCliente, 
@@ -112,6 +112,21 @@ export default function ClientesPage() {
     }
   }, [clienteToDelete, cargarClientes]);
 
+  // Función para abrir WhatsApp (web o app)
+  const abrirWhatsApp = (telefono: string) => {
+    if (!telefono) return;
+    // Limpiar el número (solo dígitos)
+    const numeroLimpio = telefono.replace(/\D/g, '');
+    // Abrir WhatsApp (detecta automáticamente si es web o app)
+    window.open(`https://wa.me/${numeroLimpio}`, '_blank');
+  };
+
+  // Función para abrir Gmail
+  const abrirEmail = (email: string) => {
+    if (!email) return;
+    window.open(`mailto:${email}`, '_blank');
+  };
+
   const clientesFiltrados = clientes.filter(cliente => {
     const nombre = cliente.nombre?.toLowerCase() || '';
     const codigo = cliente.codigoUnico?.toLowerCase() || '';
@@ -144,15 +159,16 @@ export default function ClientesPage() {
         </button>
       </div>
 
+      {/* Buscador con placeholder y texto en colores correctos */}
       <div className="mb-6">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
           <input
             type="text"
             placeholder="Buscar por nombre, código o email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
           />
         </div>
       </div>
@@ -227,11 +243,37 @@ export default function ClientesPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {cliente.email}
+                    <td className="px-6 py-4">
+                      {cliente.email ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">{cliente.email}</span>
+                          <button
+                            onClick={() => abrirEmail(cliente.email!)}
+                            className="text-gray-500 hover:text-blue-600 transition-colors"
+                            title="Enviar correo"
+                          >
+                            <Mail size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {cliente.celWhatsapp}
+                    <td className="px-6 py-4">
+                      {cliente.celWhatsapp ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">{cliente.celWhatsapp}</span>
+                          <button
+                            onClick={() => abrirWhatsApp(cliente.celWhatsapp!)}
+                            className="text-gray-500 hover:text-green-600 transition-colors"
+                            title="Enviar mensaje por WhatsApp"
+                          >
+                            <MessageCircle size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">

@@ -17,7 +17,10 @@ import {
   CheckSquare,
   DollarSign,
   Calendar,
-  Shield
+  Shield,
+  FileText,
+  Globe,
+  BookOpen
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { auth } from '@/lib/firebase';
@@ -98,6 +101,10 @@ export default function DashboardLayout({
     { id: 'tareas', label: 'Tareas', icon: CheckSquare, path: '/dashboard/tareas' },
     { id: 'gastos', label: 'Gastos', icon: DollarSign, path: '/dashboard/gastos' },
     { id: 'calendario', label: 'Calendario', icon: Calendar, path: '/dashboard/calendario' },
+    { id: 'formatos', label: 'Formatos', icon: FileText, path: '/dashboard/formatos' },
+    { id: 'enlaces', label: 'Enlaces Judiciales', icon: Globe, path: '/dashboard/enlaces' },
+    { id: 'legislacion', label: 'Legislación', icon: BookOpen, path: '/dashboard/legislacion' },
+
   ];
 
   // Agregar opción de Admin solo si el usuario tiene rol admin

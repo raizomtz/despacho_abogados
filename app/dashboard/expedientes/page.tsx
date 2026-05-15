@@ -25,6 +25,9 @@ import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { obtenerUsuarios } from '@/lib/admin';
 import { Usuario } from '@/types/usuario';
+import { obtenerAutoridades } from '@/lib/autoridades';
+import { Autoridad } from '@/types/autoridad';
+
 
 export default function ExpedientesPage() {
   const router = useRouter();
@@ -38,18 +41,23 @@ export default function ExpedientesPage() {
   const [expedienteToEdit, setExpedienteToEdit] = useState<Expediente | null>(null);
   const [expedienteToDelete, setExpedienteToDelete] = useState<Expediente | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [autoridades, setAutoridades] = useState<Autoridad[]>([]);
 
+
+// Actualiza cargarDatos
 const cargarDatos = useCallback(async () => {
   try {
     setLoading(true);
-    const [expedientesData, clientesData, usuariosData] = await Promise.all([
+    const [expedientesData, clientesData, usuariosData, autoridadesData] = await Promise.all([
       obtenerExpedientes(),
       obtenerClientes(),
-      obtenerUsuarios()
+      obtenerUsuarios(),
+      obtenerAutoridades()  // ← Agrega esta línea
     ]);
     setExpedientes(expedientesData);
     setClientes(clientesData);
     setUsuarios(usuariosData);
+    setAutoridades(autoridadesData);  // ← Agrega esta línea
   } catch (error) {
     toast.error('Error al cargar datos');
     console.error(error);
@@ -297,6 +305,7 @@ const cargarDatos = useCallback(async () => {
   }}
   onSave={handleSaveExpediente}
   clientes={clientes}
+  autoridades={autoridades}
   usuarios={usuarios}
   currentUser={user}
   initialData={expedienteToEdit || undefined}

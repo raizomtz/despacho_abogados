@@ -16,6 +16,7 @@ export interface Expediente {
   fechaRegistro: Timestamp;
   asignados: string[];
   creadoPor: string;
+  encargadoPrincipal: string | null;
 }
 
 export interface ExpedienteFormData {
@@ -31,4 +32,5 @@ export interface ExpedienteFormData {
   demandadoInculpado: string;
   estatus: 'Activo' | 'Concluido' | 'Suspendido';
   asignados: string[];
+  encargadoPrincipal: string | null;
 }

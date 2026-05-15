@@ -43,6 +43,7 @@ export async function crearExpediente(
       demandadoInculpado: expedienteData.demandadoInculpado,
       estatus: expedienteData.estatus,
       asignados: expedienteData.asignados || [],
+      encargadoPrincipal: expedienteData.encargadoPrincipal || null, 
       fechaRegistro: serverTimestamp(),
       creadoPor: userId,
     };

@@ -157,3 +157,44 @@ export async function eliminarExpediente(expedienteId: string, clienteId: string
     throw error;
   }
 }
+
+// Obtener expedientes donde el usuario está asignado
+export async function obtenerExpedientesPorUsuario(usuarioId: string): Promise<Expediente[]> {
+  try {
+    const expedientesRef = collection(db, COLLECTION_NAME);
+    const q = query(
+      expedientesRef, 
+      where('asignados', 'array-contains', usuarioId),
+      orderBy('fechaRegistro', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    const expedientes: Expediente[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      expedientes.push({
+        uid: doc.id,
+        unidadNegocio: data.unidadNegocio,
+        clienteId: data.clienteId,
+        clienteNombre: data.clienteNombre,
+        objeto: data.objeto,
+        tipoAsunto: data.tipoAsunto,
+        autoridadId: data.autoridadId,
+        numExpediente: data.numExpediente,
+        expedienteOrigen: data.expedienteOrigen,
+        actorInteresado: data.actorInteresado,
+        demandadoInculpado: data.demandadoInculpado,
+        estatus: data.estatus,
+        asignados: data.asignados || [],
+        encargadoPrincipal: data.encargadoPrincipal || null,
+        fechaRegistro: data.fechaRegistro,
+        creadoPor: data.creadoPor,
+      });
+    });
+    
+    return expedientes;
+  } catch (error) {
+    console.error('❌ Error al obtener expedientes por usuario:', error);
+    throw error;
+  }
+}

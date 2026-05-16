@@ -44,8 +44,10 @@ export default function TareasPage() {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [filterEstatus, setFilterEstatus] = useState<EstatusTarea | 'todas'>('todas');
   const [tareaSeleccionada, setTareaSeleccionada] = useState<Tarea | null>(null);
+  const [usuariosAsignadosExpediente, setUsuariosAsignadosExpediente] = useState<string[]>([]);
 
-  const cargarDatos = useCallback(async () => {
+
+const cargarDatos = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -86,6 +88,15 @@ export default function TareasPage() {
   useEffect(() => {
     cargarDatos();
   }, [cargarDatos]);
+
+  // 👇 PEGA AQUÍ el nuevo useEffect
+  useEffect(() => {
+    if (tareaSeleccionada?.expedienteId) {
+      const expediente = expedientes.find(e => e.uid === tareaSeleccionada.expedienteId);
+      setUsuariosAsignadosExpediente(expediente?.asignados || []);
+    }
+  }, [tareaSeleccionada, expedientes]);
+  
 
   const handleCrearTarea = useCallback(async (formData: TareaFormData) => {
     if (!user) return;
@@ -395,6 +406,7 @@ export default function TareasPage() {
         onSave={handleCrearTarea}
         expedientes={expedientes}
         usuarios={usuarios}
+        usuariosAsignadosExpediente={usuariosAsignadosExpediente}
         currentUser={user}
       />
 

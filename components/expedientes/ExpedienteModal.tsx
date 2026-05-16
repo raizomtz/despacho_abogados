@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Save, UserPlus, UserMinus, Users, ChevronDown, Star, StarOff, Search, UserCheck } from 'lucide-react';
+import { X, Save, UserPlus, UserMinus, Users, ChevronDown, Star } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { ExpedienteFormData } from '@/types/expediente';
 import { Cliente } from '@/types/cliente';
@@ -76,48 +76,57 @@ export default function ExpedienteModal({
   const [formData, setFormData] = useState<ExpedienteFormData>(DEFAULT_FORM_DATA);
   const [loading, setLoading] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const initialDataRef = useRef(initialData);
-  
   const [buscadorClienteOpen, setBuscadorClienteOpen] = useState(false);
   const [buscadorAutoridadOpen, setBuscadorAutoridadOpen] = useState(false);
   
-  // Estados para los modales de búsqueda de actor/demandado
-  const [buscadorActorOpen, setBuscadorActorOpen] = useState(false);
-  const [buscadorDemandadoOpen, setBuscadorDemandadoOpen] = useState(false);
-  
-  // Estado para saber qué campo estamos buscando
-  const [campoBuscando, setCampoBuscando] = useState<'actor' | 'demandado' | null>(null);
+  // Usar una ref para saber si ya se cargaron los datos iniciales
+  const datosCargadosRef = useRef(false);
+  const prevInitialDataRef = useRef(initialData);
 
+  // Resetear cuando se cierra el modal
+  useEffect(() => {
+    if (!isOpen) {
+      datosCargadosRef.current = false;
+    }
+  }, [isOpen]);
+
+  // Cargar datos solo cuando se abre el modal y hay datos para editar
   useEffect(() => {
     if (!isOpen) return;
-
-    const currentInitialData = initialDataRef.current;
     
-    if (isEdit && currentInitialData && Object.keys(currentInitialData).length > 0) {
+    // Evitar cargar múltiples veces
+    if (datosCargadosRef.current) return;
+    
+    if (isEdit && initialData && Object.keys(initialData).length > 0) {
+      console.log('Cargando datos para edición');
       setFormData({
-        unidadNegocio: currentInitialData.unidadNegocio || 'GEJ',
-        clienteId: currentInitialData.clienteId || '',
-        clienteNombre: currentInitialData.clienteNombre || '',
-        objeto: currentInitialData.objeto || '',
-        tipoAsunto: currentInitialData.tipoAsunto || '',
-        autoridadId: currentInitialData.autoridadId || '',
-        numExpediente: currentInitialData.numExpediente || '',
-        expedienteOrigen: currentInitialData.expedienteOrigen || '',
-        actorInteresado: currentInitialData.actorInteresado || '',
-        demandadoInculpado: currentInitialData.demandadoInculpado || '',
-        estatus: (currentInitialData.estatus as 'Activo' | 'Concluido' | 'Suspendido') || 'Activo',
-        asignados: currentInitialData.asignados || [],
-        encargadoPrincipal: currentInitialData.encargadoPrincipal || null,
+        unidadNegocio: initialData.unidadNegocio || 'GEJ',
+        clienteId: initialData.clienteId || '',
+        clienteNombre: initialData.clienteNombre || '',
+        objeto: initialData.objeto || '',
+        tipoAsunto: initialData.tipoAsunto || '',
+        autoridadId: initialData.autoridadId || '',
+        numExpediente: initialData.numExpediente || '',
+        expedienteOrigen: initialData.expedienteOrigen || '',
+        actorInteresado: initialData.actorInteresado || '',
+        demandadoInculpado: initialData.demandadoInculpado || '',
+        estatus: (initialData.estatus as 'Activo' | 'Concluido' | 'Suspendido') || 'Activo',
+        asignados: initialData.asignados || [],
+        encargadoPrincipal: initialData.encargadoPrincipal || null,
       });
-      setSelectedUsers(currentInitialData.asignados || []);
-    } else {
+      setSelectedUsers(initialData.asignados || []);
+      datosCargadosRef.current = true;
+    } else if (!isEdit) {
+      // Modo creación: resetear formulario
       setFormData({ ...DEFAULT_FORM_DATA });
       setSelectedUsers([]);
+      datosCargadosRef.current = true;
     }
-  }, [isOpen, isEdit]);
+  }, [isOpen, isEdit, initialData]);
 
+  // Actualizar la ref cuando initialData cambie (para futuras aperturas)
   useEffect(() => {
-    initialDataRef.current = initialData;
+    prevInitialDataRef.current = initialData;
   }, [initialData]);
 
   const handleAddUser = (userId: string) => {
@@ -144,30 +153,6 @@ export default function ExpedienteModal({
       toast.success('Encargado principal asignado');
     }
   };
-
-  // Función para marcar como cliente
-  const marcarComoCliente = (campo: 'actor' | 'demandado') => {
-    setCampoBuscando(campo);
-    if (campo === 'actor') {
-      setBuscadorActorOpen(true);
-    } else {
-      setBuscadorDemandadoOpen(true);
-    }
-  };
-
-// Función para seleccionar cliente y asignarlo al campo correspondiente
-const handleSelectClienteParaCampo = (cliente: Cliente, campo: 'actor' | 'demandado') => {
-  // Solo el nombre del cliente
-  const nombreCompleto = cliente.nombre;
-  
-  if (campo === 'actor') {
-    setFormData(prev => ({ ...prev, actorInteresado: nombreCompleto }));
-  } else {
-    setFormData(prev => ({ ...prev, demandadoInculpado: nombreCompleto }));
-  }
-  
-  toast.success(`Cliente asignado como ${campo === 'actor' ? 'Actor' : 'Demandado'}`);
-};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,104 +200,6 @@ const handleSelectClienteParaCampo = (cliente: Cliente, campo: 'actor' | 'demand
     if (user?.rol === 'admin') return 'Administrador';
     return 'Pasante';
   };
-
-  // Modal de búsqueda para Actor/Demandado (reutiliza el buscador de clientes)
-  const BuscadorClienteCampoModal = () => (
-    <AnimatePresence>
-      {(buscadorActorOpen || buscadorDemandadoOpen) && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={() => {
-              setBuscadorActorOpen(false);
-              setBuscadorDemandadoOpen(false);
-            }}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-xl shadow-2xl z-50 overflow-hidden"
-          >
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <UserCheck size={20} className="text-[#C6A43F]" />
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Seleccionar Cliente como {campoBuscando === 'actor' ? 'Actor' : 'Demandado'}
-                </h3>
-              </div>
-              <button
-                onClick={() => {
-                  setBuscadorActorOpen(false);
-                  setBuscadorDemandadoOpen(false);
-                }}
-                className="p-1 hover:bg-gray-100 rounded-lg"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-4">
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Buscar cliente por nombre o código..."
-                  onChange={(e) => {
-                    // Filtro en tiempo real
-                    const searchTerm = e.target.value.toLowerCase();
-                    const items = document.querySelectorAll('.cliente-item');
-                    items.forEach(item => {
-                      const text = item.textContent?.toLowerCase() || '';
-                      (item as HTMLElement).style.display = text.includes(searchTerm) ? 'flex' : 'none';
-                    });
-                  }}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
-                  autoFocus
-                />
-              </div>
-              
-              <div className="max-h-96 overflow-y-auto space-y-2">
-                {clientes.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    No hay clientes registrados
-                  </div>
-                ) : (
-                  clientes.map((cliente) => (
-                    <button
-                      key={cliente.uid}
-                      className="cliente-item w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
-                      onClick={() => {
-                        if (campoBuscando === 'actor') {
-                          handleSelectClienteParaCampo(cliente, 'actor');
-                          setBuscadorActorOpen(false);
-                        } else if (campoBuscando === 'demandado') {
-                          handleSelectClienteParaCampo(cliente, 'demandado');
-                          setBuscadorDemandadoOpen(false);
-                        }
-                        setCampoBuscando(null);
-                      }}
-                    >
-                      <p className="font-medium text-gray-900">{cliente.nombre}</p>
-                      <div className="flex gap-2 mt-1">
-                        <span className="text-xs text-gray-500 font-mono">{cliente.codigoUnico}</span>
-                        {cliente.rfc && (
-                          <span className="text-xs text-gray-400">RFC: {cliente.rfc}</span>
-                        )}
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
 
   return (
     <>
@@ -444,55 +331,21 @@ const handleSelectClienteParaCampo = (cliente: Cliente, campo: 'actor' | 'demand
                     placeholder="Origen del expediente"
                   />
 
-                  {/* Actor / Interesado con botón ícono */}
-                  <div className="md:col-span-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-900">
-                        Actor / Interesado
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => marcarComoCliente('actor')}
-                        className="p-1 text-gray-400 hover:text-[#C6A43F] transition-colors"
-                        title="Marcar como cliente"
-                      >
-                        <UserCheck size={16} />
-                      </button>
-                    </div>
-                    <textarea
-                      name="actorInteresado"
-                      value={formData.actorInteresado}
-                      onChange={handleChange}
-                      rows={2}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
-                      placeholder="Nombre de quien demanda o solicita..."
-                    />
-                  </div>
+                  <Input
+                    label="Actor / Interesado"
+                    name="actorInteresado"
+                    value={formData.actorInteresado}
+                    onChange={handleChange}
+                    placeholder="Quién demanda o solicita"
+                  />
 
-                  {/* Demandado / Inculpado con botón ícono */}
-                  <div className="md:col-span-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-900">
-                        Demandado / Inculpado
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => marcarComoCliente('demandado')}
-                        className="p-1 text-gray-400 hover:text-[#C6A43F] transition-colors"
-                        title="Marcar como cliente"
-                      >
-                        <UserCheck size={16} />
-                      </button>
-                    </div>
-                    <textarea
-                      name="demandadoInculpado"
-                      value={formData.demandadoInculpado}
-                      onChange={handleChange}
-                      rows={2}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#C6A43F] focus:border-transparent"
-                      placeholder="Nombre de la contraparte..."
-                    />
-                  </div>
+                  <Input
+                    label="Demandado / Inculpado"
+                    name="demandadoInculpado"
+                    value={formData.demandadoInculpado}
+                    onChange={handleChange}
+                    placeholder="Contraparte"
+                  />
 
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">
@@ -614,7 +467,6 @@ const handleSelectClienteParaCampo = (cliente: Cliente, campo: 'actor' | 'demand
         )}
       </AnimatePresence>
 
-      {/* Modales de búsqueda */}
       <BuscadorClienteModal
         isOpen={buscadorClienteOpen}
         onClose={() => setBuscadorClienteOpen(false)}
@@ -632,8 +484,6 @@ const handleSelectClienteParaCampo = (cliente: Cliente, campo: 'actor' | 'demand
           setFormData(prev => ({ ...prev, autoridadId }));
         }}
       />
-
-      <BuscadorClienteCampoModal />
     </>
   );
 }

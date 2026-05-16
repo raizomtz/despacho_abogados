@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import { 
   FolderOpen, 
   Plus, 
@@ -12,64 +13,103 @@ import {
 } from 'lucide-react';
 import { 
   obtenerExpedientes, 
+  obtenerExpedientesPorUsuario,
   crearExpediente, 
   actualizarExpediente,
   eliminarExpediente 
 } from '@/lib/expedientes';
 import { obtenerClientes } from '@/lib/clientes';
+import { obtenerUsuarios } from '@/lib/admin';
+import { obtenerAutoridades } from '@/lib/autoridades';
 import { Expediente, ExpedienteFormData } from '@/types/expediente';
 import { Cliente } from '@/types/cliente';
+import { Usuario } from '@/types/usuario';
+import { Autoridad } from '@/types/autoridad';
 import ExpedienteModal from '@/components/expedientes/ExpedienteModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
-import { obtenerUsuarios } from '@/lib/admin';
-import { Usuario } from '@/types/usuario';
-import { obtenerAutoridades } from '@/lib/autoridades';
-import { Autoridad } from '@/types/autoridad';
-
 
 export default function ExpedientesPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [autoridades, setAutoridades] = useState<Autoridad[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [expedienteToEdit, setExpedienteToEdit] = useState<Expediente | null>(null);
   const [expedienteToDelete, setExpedienteToDelete] = useState<Expediente | null>(null);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [autoridades, setAutoridades] = useState<Autoridad[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
+  // Obtener rol del usuario actual
+  const obtenerRolUsuario = useCallback(async () => {
+    if (user) {
+      try {
+        const userData = await obtenerUsuarios(); // O una función específica
+        const currentUser = userData.find(u => u.uid === user.uid);
+        setUserRole(currentUser?.rol || 'pasante');
+      } catch (error) {
+        console.error('Error al obtener rol:', error);
+        setUserRole('pasante');
+      }
+    }
+  }, [user]);
 
-// Actualiza cargarDatos
-const cargarDatos = useCallback(async () => {
-  try {
-    setLoading(true);
-    const [expedientesData, clientesData, usuariosData, autoridadesData] = await Promise.all([
-      obtenerExpedientes(),
-      obtenerClientes(),
-      obtenerUsuarios(),
-      obtenerAutoridades()  // ← Agrega esta línea
-    ]);
-    setExpedientes(expedientesData);
-    setClientes(clientesData);
-    setUsuarios(usuariosData);
-    setAutoridades(autoridadesData);  // ← Agrega esta línea
-  } catch (error) {
-    toast.error('Error al cargar datos');
-    console.error(error);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  const cargarDatos = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Cargar clientes, usuarios y autoridades (siempre se cargan)
+      const [clientesData, usuariosData, autoridadesData] = await Promise.all([
+        obtenerClientes(),
+        obtenerUsuarios(),
+        obtenerAutoridades()
+      ]);
+      setClientes(clientesData);
+      setUsuarios(usuariosData);
+      setAutoridades(autoridadesData);
+      
+      // Cargar expedientes según el rol
+      let expedientesData: Expediente[];
+      
+      if (userRole === 'admin' || userRole === 'abogado') {
+        // Admin y abogados ven todos los expedientes
+        expedientesData = await obtenerExpedientes();
+      } else {
+        // Pasantes solo ven expedientes donde están asignados
+        if (user) {
+          expedientesData = await obtenerExpedientesPorUsuario(user.uid);
+        } else {
+          expedientesData = [];
+        }
+      }
+      
+      setExpedientes(expedientesData);
+    } catch (error) {
+      toast.error('Error al cargar datos');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [userRole, user]);
 
   useEffect(() => {
-    cargarDatos();
-  }, [cargarDatos]);
+    const init = async () => {
+      await obtenerRolUsuario();
+    };
+    init();
+  }, [obtenerRolUsuario]);
 
+  useEffect(() => {
+    if (userRole) {
+      cargarDatos();
+    }
+  }, [cargarDatos, userRole]);
+
+  // Resto del código (handleCrearExpediente, handleEditarExpediente, etc.) se mantiene igual...
   const handleCrearExpediente = useCallback(async (formData: ExpedienteFormData) => {
     if (!user) return;
     
@@ -98,6 +138,8 @@ const cargarDatos = useCallback(async () => {
         actorInteresado: formData.actorInteresado,
         demandadoInculpado: formData.demandadoInculpado,
         estatus: formData.estatus,
+        asignados: formData.asignados,
+        encargadoPrincipal: formData.encargadoPrincipal,
       };
       await actualizarExpediente(expedienteToEdit.uid, dataToUpdate);
       toast.success('Expediente actualizado exitosamente');
@@ -158,21 +200,23 @@ const cargarDatos = useCallback(async () => {
             Gestión de casos y expedientes legales
           </p>
         </div>
-        <button
-          onClick={() => {
-            setExpedienteToEdit(null);
-            setModalOpen(true);
-          }}
-          className="bg-[#C6A43F] hover:bg-[#B3922F] text-black font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-        >
-          <Plus size={18} />
-          Nuevo Expediente
-        </button>
+        {(userRole === 'admin' || userRole === 'abogado') && (
+          <button
+            onClick={() => {
+              setExpedienteToEdit(null);
+              setModalOpen(true);
+            }}
+            className="bg-[#C6A43F] hover:bg-[#B3922F] text-black font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Nuevo Expediente
+          </button>
+        )}
       </div>
 
       <div className="mb-6">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
           <input
             type="text"
             placeholder="Buscar por número de expediente o nombre del cliente..."
@@ -200,17 +244,10 @@ const cargarDatos = useCallback(async () => {
             <p className="text-gray-500">
               {searchTerm 
                 ? 'Intenta con otros términos de búsqueda' 
-                : 'Comienza agregando tu primer expediente'}
+                : (userRole === 'pasante' 
+                    ? 'No estás asignado a ningún expediente' 
+                    : 'Comienza agregando tu primer expediente')}
             </p>
-            {!searchTerm && (
-              <button
-                onClick={() => setModalOpen(true)}
-                className="mt-4 bg-[#C6A43F] hover:bg-[#B3922F] text-black font-semibold px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2"
-              >
-                <Plus size={18} />
-                Agregar Expediente
-              </button>
-            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -261,33 +298,36 @@ const cargarDatos = useCallback(async () => {
                     </td>
                     <td className="px-6 py-4 text-right space-x-2">
                       <button
-    onClick={() => router.push(`/dashboard/expedientes/${expediente.uid}`)}
-    className="text-gray-600 hover:text-[#C6A43F] transition-colors"
-    title="Ver detalles"
-  >
-    <Eye size={18} />
-  </button>
-  
-                      <button
-                        onClick={() => {
-                          setExpedienteToEdit(expediente);
-                          setModalOpen(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                        title="Editar"
+                        onClick={() => router.push(`/dashboard/expedientes/${expediente.uid}`)}
+                        className="text-gray-600 hover:text-[#C6A43F] transition-colors"
+                        title="Ver detalles"
                       >
-                        <Edit size={18} />
+                        <Eye size={18} />
                       </button>
-                      <button
-                        onClick={() => {
-                          setExpedienteToDelete(expediente);
-                          setConfirmModalOpen(true);
-                        }}
-                        className="text-red-600 hover:text-red-800 transition-colors"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {(userRole === 'admin' || userRole === 'abogado') && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setExpedienteToEdit(expediente);
+                              setModalOpen(true);
+                            }}
+                            className="text-blue-600 hover:text-blue-800 transition-colors"
+                            title="Editar"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setExpedienteToDelete(expediente);
+                              setConfirmModalOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-800 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -297,34 +337,39 @@ const cargarDatos = useCallback(async () => {
         )}
       </div>
 
-<ExpedienteModal
-  isOpen={modalOpen}
-  onClose={() => {
-    setModalOpen(false);
-    setExpedienteToEdit(null);
-  }}
-  onSave={handleSaveExpediente}
-  clientes={clientes}
-  autoridades={autoridades}
-  usuarios={usuarios}
-  currentUser={user}
-  initialData={expedienteToEdit || undefined}
-  isEdit={!!expedienteToEdit}
-/>
+      {(userRole === 'admin' || userRole === 'abogado') && (
+        <>
+          <ExpedienteModal
+            key={expedienteToEdit?.uid || 'new'} // ← Agrega esta línea
+            isOpen={modalOpen}
+            onClose={() => {
+              setModalOpen(false);
+              setExpedienteToEdit(null);
+            }}
+            onSave={handleSaveExpediente}
+            clientes={clientes}
+            autoridades={autoridades}
+            usuarios={usuarios}
+            currentUser={user}
+            initialData={expedienteToEdit || undefined}
+            isEdit={!!expedienteToEdit}
+          />
 
-      <ConfirmModal
-        isOpen={confirmModalOpen}
-        onClose={() => {
-          setConfirmModalOpen(false);
-          setExpedienteToDelete(null);
-        }}
-        onConfirm={handleEliminarExpediente}
-        title="Eliminar Expediente"
-        message={`¿Estás seguro de que deseas eliminar el expediente "${expedienteToDelete?.numExpediente}"? Esta acción no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        type="danger"
-      />
+          <ConfirmModal
+            isOpen={confirmModalOpen}
+            onClose={() => {
+              setConfirmModalOpen(false);
+              setExpedienteToDelete(null);
+            }}
+            onConfirm={handleEliminarExpediente}
+            title="Eliminar Expediente"
+            message={`¿Estás seguro de que deseas eliminar el expediente "${expedienteToDelete?.numExpediente}"? Esta acción no se puede deshacer.`}
+            confirmText="Eliminar"
+            cancelText="Cancelar"
+            type="danger"
+          />
+        </>
+      )}
     </div>
   );
 }

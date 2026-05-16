@@ -8,13 +8,16 @@ interface ExpedientesPorEstatusProps {
 }
 
 export default function ExpedientesPorEstatus({ expedientes }: ExpedientesPorEstatusProps) {
+  // Asegurar que expedientes es un array
+  const expedientesArray = Array.isArray(expedientes) ? expedientes : [];
+  
   const estatusCount = {
-    Activo: expedientes.filter(e => e.estatus === 'Activo').length,
-    Concluido: expedientes.filter(e => e.estatus === 'Concluido').length,
-    Suspendido: expedientes.filter(e => e.estatus === 'Suspendido').length,
+    Activo: expedientesArray.filter(e => e.estatus === 'Activo').length,
+    Concluido: expedientesArray.filter(e => e.estatus === 'Concluido').length,
+    Suspendido: expedientesArray.filter(e => e.estatus === 'Suspendido').length,
   };
 
-  const total = expedientes.length;
+  const total = expedientesArray.length;
   const getPercentage = (count: number) => total > 0 ? (count / total) * 100 : 0;
 
   const estatusConfig = {
@@ -22,6 +25,20 @@ export default function ExpedientesPorEstatus({ expedientes }: ExpedientesPorEst
     Concluido: { color: 'bg-gray-500', bgColor: 'bg-gray-50', textColor: 'text-gray-600' },
     Suspendido: { color: 'bg-yellow-500', bgColor: 'bg-yellow-50', textColor: 'text-yellow-600' },
   };
+
+  if (total === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="flex items-center gap-2 p-4 border-b border-gray-200">
+          <FolderOpen size={20} className="text-[#C6A43F]" />
+          <h3 className="font-semibold text-gray-900">Expedientes por Estatus</h3>
+        </div>
+        <div className="p-8 text-center">
+          <p className="text-gray-500 text-sm">No hay expedientes registrados</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">

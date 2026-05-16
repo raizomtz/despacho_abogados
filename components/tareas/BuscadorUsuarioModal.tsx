@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Search, Users, UserCheck, Star, Shield, User, GraduationCap } from 'lucide-react';
+import { X, Search, Users, UserCheck, Star, Shield, User, GraduationCap, Info } from 'lucide-react';
 import { Usuario } from '@/types/usuario';
 
 interface BuscadorUsuarioModalProps {
   isOpen: boolean;
   onClose: () => void;
   usuarios: Usuario[];
-  usuariosAsignadosExpediente?: string[]; // UIDs de usuarios asignados al expediente
+  usuariosAsignadosExpediente?: string[];
   onSelectUsuario: (usuarioId: string) => void;
 }
 
@@ -28,7 +28,6 @@ export default function BuscadorUsuarioModal({
     }
   }, [isOpen]);
 
-  // Ordenar usuarios: primero los asignados al expediente, luego por rol
   const usuariosOrdenados = [...usuarios].sort((a, b) => {
     const aAsignado = usuariosAsignadosExpediente.includes(a.uid);
     const bAsignado = usuariosAsignadosExpediente.includes(b.uid);
@@ -36,7 +35,6 @@ export default function BuscadorUsuarioModal({
     if (aAsignado && !bAsignado) return -1;
     if (!aAsignado && bAsignado) return 1;
     
-    // Si ambos están asignados o ambos no, ordenar por rol
     const roles = { admin: 1, abogado: 2, pasante: 3 };
     return (roles[a.rol as keyof typeof roles] || 4) - (roles[b.rol as keyof typeof roles] || 4);
   });
@@ -103,6 +101,28 @@ export default function BuscadorUsuarioModal({
             </div>
             
             <div className="p-4">
+              {/* Información sobre asignados al expediente - con estilo dorado */}
+              {usuariosAsignadosExpediente.length > 0 && (
+                <div className="mb-4 p-3 bg-[#C6A43F]/5 rounded-lg border border-[#C6A43F]/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Info size={16} className="text-[#C6A43F]" />
+                    <span className="text-sm font-medium text-gray-700">Usuarios asignados a este expediente</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {usuariosAsignadosExpediente.map(uid => {
+                      const user = usuarios.find(u => u.uid === uid);
+                      if (!user) return null;
+                      return (
+                        <span key={uid} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-[#C6A43F]/10 text-[#8B6914] border border-[#C6A43F]/20">
+                          <UserCheck size={12} className="text-[#C6A43F]" />
+                          {user.nombre || user.email}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
@@ -132,7 +152,7 @@ export default function BuscadorUsuarioModal({
                         }}
                         className={`w-full text-left p-3 rounded-lg transition-colors border ${
                           isAsignado 
-                            ? 'bg-[#C6A43F]/5 border-[#C6A43F] hover:bg-[#C6A43F]/10' 
+                            ? 'bg-[#C6A43F]/5 border-[#C6A43F]/30 hover:bg-[#C6A43F]/10' 
                             : 'bg-white border-gray-100 hover:bg-gray-50'
                         }`}
                       >
@@ -144,9 +164,9 @@ export default function BuscadorUsuarioModal({
                             </p>
                           </div>
                           {isAsignado && (
-                            <span className="flex items-center gap-1 text-xs text-[#C6A43F]">
-                              <UserCheck size={12} />
-                              Asignado
+                            <span className="flex items-center gap-1 text-xs text-[#8B6914] bg-[#C6A43F]/10 px-2 py-0.5 rounded-full">
+                              <UserCheck size={12} className="text-[#C6A43F]" />
+                              Asignado al expediente
                             </span>
                           )}
                         </div>

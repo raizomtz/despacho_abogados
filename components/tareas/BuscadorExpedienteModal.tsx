@@ -9,7 +9,7 @@ interface BuscadorExpedienteModalProps {
   isOpen: boolean;
   onClose: () => void;
   expedientes: Expediente[];
-  onSelectExpediente: (expedienteId: string, expedienteNum: string, clienteNombre: string) => void;
+  onSelectExpediente: (expedienteId: string, expedienteNum: string, clienteNombre: string, asignados?: string[]) => void;
 }
 
 export default function BuscadorExpedienteModal({
@@ -95,7 +95,7 @@ export default function BuscadorExpedienteModal({
                     <button
                       key={exp.uid}
                       onClick={() => {
-                        onSelectExpediente(exp.uid!, exp.numExpediente, exp.clienteNombre);
+                        onSelectExpediente(exp.uid!, exp.numExpediente, exp.clienteNombre, exp.asignados);
                         onClose();
                       }}
                       className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"

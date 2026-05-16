@@ -9,7 +9,7 @@ export interface HistorialTarea {
   usuarioNombre?: string;
   estatusAnterior: EstatusTarea;
   estatusNuevo: EstatusTarea;
-  fecha: Timestamp | FieldValue; // ← Permitir ambos tipos
+  fecha: Date; // ← Permitir ambos tipos
   comentario: string;
 }
 

@@ -57,44 +57,89 @@ export async function crearTarea(
   }
 }
 
-// Obtener tareas asignadas a un usuario
+// Obtener tareas asignadas a un usuario (con fallback sin orderBy)
 export async function obtenerTareasPorUsuario(usuarioId: string): Promise<Tarea[]> {
   try {
     const tareasRef = collection(db, COLLECTION_NAME);
-    const q = query(
-      tareasRef, 
-      where('asignadoA', '==', usuarioId),
-      orderBy('fechaLimite', 'asc')
-    );
-    const querySnapshot = await getDocs(q);
     
-    const tareas: Tarea[] = [];
-    querySnapshot.forEach((doc) => {
-      tareas.push({ ...doc.data() as Tarea, uid: doc.id });
-    });
-    
-    return tareas;
+    // Intentar la consulta con orderBy
+    try {
+      const q = query(
+        tareasRef, 
+        where('asignadoA', '==', usuarioId),
+        orderBy('fechaLimite', 'asc')
+      );
+      const querySnapshot = await getDocs(q);
+      
+      const tareas: Tarea[] = [];
+      querySnapshot.forEach((doc) => {
+        tareas.push({ ...doc.data() as Tarea, uid: doc.id });
+      });
+      
+      return tareas;
+    } catch (indexError: any) {
+      // Si el error es por falta de índice, consultar sin orderBy
+      if (indexError.code === 'failed-precondition') {
+        console.log('⚠️ Índice no encontrado para tareas, consultando sin ordenamiento');
+        const q2 = query(tareasRef, where('asignadoA', '==', usuarioId));
+        const snapshot2 = await getDocs(q2);
+        
+        const tareas: Tarea[] = [];
+        snapshot2.forEach((doc) => {
+          tareas.push({ ...doc.data() as Tarea, uid: doc.id });
+        });
+        
+        // Ordenar manualmente
+        return tareas.sort((a, b) => {
+          const dateA = a.fechaLimite?.toDate?.() || new Date(0);
+          const dateB = b.fechaLimite?.toDate?.() || new Date(0);
+          return dateA.getTime() - dateB.getTime();
+        });
+      }
+      throw indexError;
+    }
   } catch (error) {
-    console.error('❌ Error al obtener tareas:', error);
+    console.error('❌ Error al obtener tareas por usuario:', error);
     throw error;
   }
 }
 
-// Obtener todas las tareas (para admin/abogados)
+// Obtener todas las tareas (para admin/abogados) - con fallback
 export async function obtenerTodasTareas(): Promise<Tarea[]> {
   try {
     const tareasRef = collection(db, COLLECTION_NAME);
-    const q = query(tareasRef, orderBy('fechaLimite', 'asc'));
-    const querySnapshot = await getDocs(q);
     
-    const tareas: Tarea[] = [];
-    querySnapshot.forEach((doc) => {
-      tareas.push({ ...doc.data() as Tarea, uid: doc.id });
-    });
-    
-    return tareas;
+    try {
+      const q = query(tareasRef, orderBy('fechaLimite', 'asc'));
+      const querySnapshot = await getDocs(q);
+      
+      const tareas: Tarea[] = [];
+      querySnapshot.forEach((doc) => {
+        tareas.push({ ...doc.data() as Tarea, uid: doc.id });
+      });
+      
+      return tareas;
+    } catch (indexError: any) {
+      if (indexError.code === 'failed-precondition') {
+        console.log('⚠️ Índice no encontrado para todas las tareas, consultando sin ordenamiento');
+        const q2 = query(tareasRef);
+        const snapshot2 = await getDocs(q2);
+        
+        const tareas: Tarea[] = [];
+        snapshot2.forEach((doc) => {
+          tareas.push({ ...doc.data() as Tarea, uid: doc.id });
+        });
+        
+        return tareas.sort((a, b) => {
+          const dateA = a.fechaLimite?.toDate?.() || new Date(0);
+          const dateB = b.fechaLimite?.toDate?.() || new Date(0);
+          return dateA.getTime() - dateB.getTime();
+        });
+      }
+      throw indexError;
+    }
   } catch (error) {
-    console.error('❌ Error al obtener tareas:', error);
+    console.error('❌ Error al obtener todas las tareas:', error);
     throw error;
   }
 }
@@ -132,13 +177,12 @@ export async function actualizarEstatusTarea(
     
     const tareaData = tareaActual.data() as Tarea;
     
-    // Crear historial
     const nuevoHistorial: HistorialTarea = {
       usuario: usuarioId,
       usuarioNombre: usuarioNombre,
       estatusAnterior: tareaData.estatus,
       estatusNuevo: data.estatus,
-      fecha: serverTimestamp(),
+      fecha: new Date(),
       comentario: data.comentarioFinal || `Cambió estatus a ${data.estatus}`
     };
     
@@ -147,9 +191,8 @@ export async function actualizarEstatusTarea(
       historial: [...(tareaData.historial || []), nuevoHistorial]
     };
     
-    // Si se completa, agregar fecha y horas
     if (data.estatus === 'completada') {
-      updateData.fechaCompletado = serverTimestamp();
+      updateData.fechaCompletado = new Date();
       if (data.horasReales) {
         updateData.horasReales = data.horasReales;
       }
@@ -157,6 +200,9 @@ export async function actualizarEstatusTarea(
         updateData.comentarioFinal = data.comentarioFinal;
       }
     }
+
+    console.log('Campos a actualizar:', Object.keys(updateData));
+    console.log('updateData completo:', updateData);
     
     await updateDoc(tareaRef, updateData);
     console.log('✅ Estatus actualizado');

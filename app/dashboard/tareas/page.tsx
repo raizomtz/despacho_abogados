@@ -20,7 +20,7 @@ import {
   actualizarEstatusTarea,
   eliminarTarea
 } from '@/lib/tareas';
-import { obtenerExpedientes } from '@/lib/expedientes';
+import { obtenerExpedientes, obtenerExpedientesPorUsuario } from '@/lib/expedientes';
 import { obtenerClientes } from '@/lib/clientes';
 import { obtenerUsuarios } from '@/lib/usuarios';
 import { Tarea, TareaFormData, EstatusTarea } from '@/types/tarea';
@@ -29,6 +29,8 @@ import TareaModal from '@/components/tareas/TareaModal';
 import ActualizarEstatusModal from '@/components/tareas/ActualizarEstatusModal';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import toast from 'react-hot-toast';
+import { obtenerUsuarioPorId } from '@/lib/admin';
+import { Usuario } from '@/types/usuario';
 
 type VistaTareas = 'mis-tareas' | 'equipo';
 
@@ -45,7 +47,7 @@ export default function TareasPage() {
   const [filterEstatus, setFilterEstatus] = useState<EstatusTarea | 'todas'>('todas');
   const [tareaSeleccionada, setTareaSeleccionada] = useState<Tarea | null>(null);
   const [usuariosAsignadosExpediente, setUsuariosAsignadosExpediente] = useState<string[]>([]);
-
+  const [userRole, setUserRole] = useState<string | null>(null);
 
 const cargarDatos = useCallback(async () => {
     if (!user) return;
@@ -53,20 +55,40 @@ const cargarDatos = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Cargar expedientes y usuarios
-      const [expData, usersData] = await Promise.all([
-        obtenerExpedientes(),
-        obtenerUsuarios()
-      ]);
+      // Primero obtener el rol del usuario
+      const usersData = await obtenerUsuarios();
+      const currentUserData = usersData.find(u => u.uid === user.uid);
+      const rol = currentUserData?.rol || 'pasante';
+      setUserRole(rol);
+      
+      // Cargar expedientes SEGÚN EL ROL (igual que en dashboard)
+      let expData: Expediente[] = [];
+      if (rol === 'admin' || rol === 'abogado') {
+        expData = await obtenerExpedientes();
+      } else {
+        // Pasante: solo expedientes donde está asignado
+        expData = await obtenerExpedientesPorUsuario(user.uid);
+      }
       setExpedientes(expData);
       setUsuarios(usersData);
       
-      // Cargar tareas según la vista
-      let tareasData: Tarea[];
-      if (vista === 'mis-tareas') {
-        tareasData = await obtenerTareasPorUsuario(user.uid);
+      // Cargar tareas según el rol
+      let tareasData: Tarea[] = [];
+      
+      if (rol === 'admin' || rol === 'abogado') {
+        // Admin/Abogado: según la vista seleccionada
+        if (vista === 'mis-tareas') {
+          tareasData = await obtenerTareasPorUsuario(user.uid);
+        } else {
+          tareasData = await obtenerTodasTareas();
+        }
       } else {
-        tareasData = await obtenerTodasTareas();
+        // Pasante: SOLO sus tareas
+        tareasData = await obtenerTareasPorUsuario(user.uid);
+        // Si intentó ver "equipo", cambiar la vista a "mis-tareas"
+        if (vista === 'equipo') {
+          setVista('mis-tareas');
+        }
       }
       
       // Enriquecer tareas con nombres de usuarios
@@ -78,8 +100,8 @@ const cargarDatos = useCallback(async () => {
       
       setTareas(tareasEnriquecidas);
     } catch (error) {
+      console.error('Error detallado:', error);
       toast.error('Error al cargar datos');
-      console.error(error);
     } finally {
       setLoading(false);
     }

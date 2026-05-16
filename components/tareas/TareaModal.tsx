@@ -67,6 +67,9 @@ export default function TareaModal({
   const [buscadorExpedienteOpen, setBuscadorExpedienteOpen] = useState(false);
   const [buscadorUsuarioOpen, setBuscadorUsuarioOpen] = useState(false);
 
+  const [asignadosExpediente, setAsignadosExpediente] = useState<string[]>([]); // ← Agrega esta línea
+
+
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().split('T')[0];
@@ -97,13 +100,16 @@ export default function TareaModal({
     initialDataRef.current = initialData;
   }, [initialData]);
 
-  const handleSelectExpediente = (expedienteId: string, expedienteNum: string, clienteNombre: string) => {
+  const handleSelectExpediente = (expedienteId: string, expedienteNum: string, clienteNombre: string, asignados?: string[]) => {
     setFormData(prev => ({
       ...prev,
       expedienteId,
       expedienteNum,
       clienteNombre,
     }));
+      setAsignadosExpediente(asignados || []);
+      console.log('Asignados del expediente seleccionado:', asignados); // Para depurar
+
   };
 
   const handleSelectUsuario = (usuarioId: string) => {
@@ -336,7 +342,7 @@ export default function TareaModal({
         isOpen={buscadorUsuarioOpen}
         onClose={() => setBuscadorUsuarioOpen(false)}
         usuarios={usuarios}
-        usuariosAsignadosExpediente={usuariosAsignadosExpediente}
+        usuariosAsignadosExpediente={asignadosExpediente}
         onSelectUsuario={handleSelectUsuario}
       />
     </>
